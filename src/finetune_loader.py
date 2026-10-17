@@ -19,7 +19,7 @@ class FinetuneLoader(Dataset):
         ov_idx2category = objaverse_dict["idx2category"]
         objaverse_dict = None
 
-        lvis_test_file = "/projectnb/ivc-ml/harshk/3d_perception/OpenShape3D/meta_data/split/lvis.json"
+        lvis_test_file = config.objaverse_lvis.split
         lvis_test = json.load(open(lvis_test_file, "r"))
 
         cat_idx_list = [ov_category2idx[cat] for cat in cat_list]

@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
@@ -9,12 +10,14 @@ import json
 from utils.data import normalize_pc
 from utils_func import calc_accuracy
 
-OMNI_HDF5_DIR = "/projectnb/ivc-ml/harshk/3d_perception/OmniObject3D/data/OpenXD-OmniObject3D-New/raw/point_clouds/hdf5_files/1024"
-OMNI_PLY_DIR = "/projectnb/ivc-ml/harshk/3d_perception/OmniObject3D/data/OpenXD-OmniObject3D-New/raw/point_clouds/ply_files"
+def get_omni_dir(env_var):
+    # OmniObject3D point cloud dirs, e.g. .../raw/point_clouds/hdf5_files/1024 and .../raw/point_clouds/ply_files
+    path = os.environ.get(env_var)
+    if path is None:
+        raise RuntimeError(f"Set the {env_var} environment variable to the OmniObject3D point cloud directory.")
+    return path
 
 def load_omni_hdf5_data(num_points = 1024):
-    # common_objs = get_objects("/projectnb/ivc-ml/harshk/3d_perception/common_objs.json")
-    # modelnet_objs = get_objects("/projectnb/ivc-ml/harshk/3d_perception/modelnet_objs.json")
     omni_dict = np.load("../meta_data/omni_dict.npy", allow_pickle=True).item()
     idx2category = omni_dict['idx2category']
     category2idx = omni_dict['category2idx']
@@ -22,12 +25,13 @@ def load_omni_hdf5_data(num_points = 1024):
 
     all_data = []
     all_label = []
-    omni_list = os.listdir(OMNI_HDF5_DIR)
+    omni_hdf5_dir = get_omni_dir("OMNI_HDF5_DIR")
+    omni_list = os.listdir(omni_hdf5_dir)
 
     for fname in omni_list:
         obj = fname.split('_')[0]
         if obj in keys:
-            f = h5py.File(os.path.join(OMNI_HDF5_DIR, obj+"_" + str(num_points) + ".hdf5"), 'r+')
+            f = h5py.File(os.path.join(omni_hdf5_dir, obj+"_" + str(num_points) + ".hdf5"), 'r+')
             data = f['data'][0].astype('float64')
             idx = category2idx[obj]
             
@@ -46,7 +50,7 @@ def load_omni_hdf5_data(num_points = 1024):
     return all_data, all_label
 
 def load_omni_ply_data(num_points = 1024):
-    point_dir = os.path.join(OMNI_PLY_DIR, str(num_points))
+    point_dir = os.path.join(get_omni_dir("OMNI_PLY_DIR"), str(num_points))
     omni_dict = np.load("../meta_data/omni_dict.npy", allow_pickle=True).item()
     idx2category = omni_dict['idx2category']
     category2idx = omni_dict['category2idx']

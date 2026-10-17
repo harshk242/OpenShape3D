@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import open3d as o3d
 import random
@@ -144,7 +145,7 @@ model.to(device)
 # print("model: ", model)
 model.eval()
 
-cache_dir = "/projectnb/ivc-ml/harshk/.cache/huggingface/datasets/kaiming-fast-vol/workspace/open_clip_model/"
+cache_dir = os.environ.get("OPEN_CLIP_CACHE_DIR")
 print("loading OpenCLIP model...")
 open_clip_model, _, open_clip_preprocess = open_clip.create_model_and_transforms('ViT-bigG-14', 
                                             pretrained='laion2b_s39b_b160k', cache_dir=cache_dir)

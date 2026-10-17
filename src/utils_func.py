@@ -77,7 +77,7 @@ def load_model_from_path(config, model_path, device):
 #     return model
 
 def get_train_test_size(config, target_cat_pair):
-    finetune_dir = os.path.join("/projectnb/ivc-ml/harshk/3d_perception/OpenShape3D/finetune", target_cat_pair)
+    finetune_dir = os.path.join("finetune", target_cat_pair)
     train_lvis_filtered = os.path.join(finetune_dir, "lvis_filter_train.json")
     test_lvis_filtered = os.path.join(finetune_dir, "lvis_filter_test.json")
 
