@@ -12,8 +12,8 @@ from datetime import datetime
 from param import parse_args
 from utils.misc import load_config, dump_config    
 from utils.logger import setup_logging
+from utils.distributed import setup, setup_cache, cleanup
 from train_binary import Trainer
-import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
 
@@ -22,21 +22,6 @@ from utils_func import load_model
 
 cat_list = ["armor", "helmet"]
 
-def setup(rank, world_size):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-
-def setup_cache(config):
-    if config.cache_dir is not None:
-        print("Setting cache: ", config.cache_dir)
-        os.environ['TORCH_HOME'] = os.path.join(config.cache_dir, 'torch')
-        os.environ['TRANSFORMERS_CACHE'] = os.path.join(config.cache_dir, 'huggingface', 'transformers')
-        os.environ['HF_DATASETS_CACHE'] = os.path.join(config.cache_dir, 'huggingface', 'datasets')
-        os.environ['HF_HOME'] = os.path.join(config.cache_dir, 'huggingface', 'home')
-
-def cleanup():
-    dist.destroy_process_group()
 
 class BinaryClassifier(torch.nn.Module):
     def __init__(self, base_model, clip_cat_feat, device):
@@ -59,7 +44,7 @@ class BinaryClassifier(torch.nn.Module):
 
 def binary_main(rank, world_size, cli_args, extras, *args):
     cat_list = args[0]
-    setup(rank, world_size)
+    setup(rank, world_size, '12355')
     config = load_config(cli_args.config, cli_args = vars(cli_args), extra_args = extras)
 
     setup_cache(config)
