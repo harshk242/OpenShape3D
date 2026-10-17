@@ -26,7 +26,6 @@ class ModelNet40Test(Dataset):
             self.category2idx[category] = i
             self.clip_cat_feat.append(clip_feat[category]["open_clip_text_feat"])
         self.clip_cat_feat = np.concatenate(self.clip_cat_feat, axis=0)
-        # print("self.category2idx: ", self.category2idx)
         # logging.info("ModelNet40Test: %d samples" % len(self.split))
         # logging.info("----clip feature shape: %s" % str(self.clip_cat_feat.shape))
 
@@ -62,7 +61,6 @@ class ModelNet40Test(Dataset):
         return len(self.split)
 
 def modelnet40_collate_fn(list_data):
-    # print("keys: ", list_data[0].keys())
     return {
         # "xyz": ME.utils.batched_coordinates([data["xyz"] for data in list_data], dtype=torch.float32),
         # "xyz": torch.Tensor([data["xyz"] for data in list_data], dtype=torch.float32),
@@ -104,11 +102,6 @@ def test_modelnet40(model, config, modelnet40_loader, text_proj, device):
     data_xyz = []
     with torch.no_grad():
         for data in modelnet40_loader:
-            # if not model.get("use_dense", False):
-            #     pred_feat = model(data['xyz'], data['features'], \
-            #                             device = device, \
-            #                             quantization_size = config.model.voxel_size)
-            # else:
             data['xyz_dense'] = data['xyz_dense'].to(device)
             data['features_dense'] = data['features_dense'].to(device)
             
@@ -124,16 +117,10 @@ def test_modelnet40(model, config, modelnet40_loader, text_proj, device):
                 if idx.sum() > 0:
                     per_cat_correct[i] += (logits[idx].argmax(dim=1) == labels[idx]).float().sum()
                     per_cat_count[i] += idx.sum()
-    print("logits_all: ", torch.cat(logits_all).shape)
-    print("labels_all: ", torch.cat(labels_all).shape)
-    print("labels_all: ", torch.cat(labels_all))
     topk_acc, correct = calc_accuracy(torch.cat(logits_all), torch.cat(labels_all), topk=(1,3,5,))
 
-    # print("per_cat_correct: ", per_cat_correct)
-    # print("per_cat_count: ", per_cat_count)
     overall_acc = per_cat_correct.sum() / per_cat_count.sum()
     per_cat_acc = per_cat_correct / per_cat_count
-    # print("per_cat_acc: ", per_cat_acc)
     modelnet_dict = {}
 
     modelnet_dict["per_cat_acc"] = per_cat_acc.clone().detach().cpu()
@@ -145,42 +132,15 @@ def test_modelnet40(model, config, modelnet40_loader, text_proj, device):
 
     torch.save(modelnet_dict, "src/eval_data/modelnet_dict.pt")
 
-    # torch.save(per_cat_acc.clone().detach().cpu(), "src/eval_data/mn_per_cat_acc.pt")
-    # torch.save(torch.cat(labels_all).detach().cpu(), "src/eval_data/mn_labels_all.pt")
-    # torch.save(torch.cat(logits_all).detach().cpu(), "src/eval_data/mn_logits_all.pt")
-    # torch.save(category2idx, "src/eval_data/mn_category2idx.pt")
-    # torch.save(idx2category, "src/eval_data/mn_idx2category.pt")
-
-    # torch.save(per_cat_acc, "src/eval_data/mn_per_cat_acc.pt")
-    # torch.save(labels_all, "src/eval_data/mn_labels_all.pt")
-    # torch.save(logits_all, "src/eval_data/mn_logits_all.pt")
 
     eval_dict = {}
     for i in torch.argsort(per_cat_acc):
-        # print("key: ", idx2category[i])
         eval_dict[idx2category[i.item()]] = {"acc": per_cat_acc[i].item(), "count": per_cat_count[i].item(), 
                                              "correct": per_cat_correct[i].item()}
         
-    # print("eval_dict: ", eval_dict)
     
     #for i in range(40):
-    #    print(idx2category[i], per_cat_acc[i])
 
-    # if overall_acc > self.best_modelnet40_overall_acc:
-    #     self.best_modelnet40_overall_acc = overall_acc
-    #     self.save_model('best_modelnet40_overall')
-    # if per_cat_acc.mean() > self.best_modelnet40_class_acc:
-    #     self.best_modelnet40_class_acc = per_cat_acc.mean()
-    #     self.save_model('best_modelnet40_class')
 
     print('Test ModelNet40: overall acc: {0} class_acc: {1}'.format(overall_acc, per_cat_acc.mean()))
     print('Test ModelNet40: top1_acc: {0} top3_acc: {1} top5_acc: {2}'.format(topk_acc[0].item(), topk_acc[1].item(), topk_acc[2].item()))
-
-    # logging.info('Test ModelNet40: overall acc: {0}({1}) class_acc: {2}({3})'.format(overall_acc, self.best_modelnet40_overall_acc, per_cat_acc.mean(), self.best_modelnet40_class_acc))
-    # logging.info('Test ModelNet40: top1_acc: {0} top3_acc: {1} top5_acc: {2}'.format(topk_acc[0].item(), topk_acc[1].item(), topk_acc[2].item()))
-    # wandb.log({"test/epoch": self.epoch,
-    #             "test/step": self.step,
-    #             "test/ModelNet40_overall_acc": overall_acc,
-    #             "test/ModelNet40_class_acc": per_cat_acc.mean(),
-    #             "test/top3_acc": topk_acc[1],
-    #             "test/top5_acc": topk_acc[2],})

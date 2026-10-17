@@ -1,3 +1,4 @@
+import os
 import argparse
 
 def parse_args(args):
@@ -67,14 +68,13 @@ def parse_args(args):
     )
     parser.add_argument(
         "--wandb_key",
-        default="3051f76ad3503c10871179fb154be79d5e561ccc",
-        # default=None,
+        default=os.environ.get("WANDB_API_KEY"),
         type=str,
-        help="wandb login key"
+        help="wandb login key (defaults to $WANDB_API_KEY; wandb is disabled if unset)"
     )
     parser.add_argument(
         "--cache_dir",
-        default="/projectnb/ivc-ml/harshk/.cache",
+        default=None,
         type=str,
         help="cache directory"
     )

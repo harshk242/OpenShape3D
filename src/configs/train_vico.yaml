@@ -11,7 +11,7 @@ model:
   scaling: 4
 
 vico:
-  dict_path: /projectnb/ivc-ml/harshk/3d_perception/vico/pretrained_vico/glove_300_vico_select_200/ov_vico_feat_dict.npy
+  dict_path: meta_data/vico/ov_vico_feat_dict.npy
 
 training:
   use_openclip_optimizer_scheduler: False

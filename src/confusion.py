@@ -15,7 +15,6 @@ def plot_confusion_matrix(model_dict, fig_size=(13,10), file_name="src/eval_data
     category2idx = model_dict["category2idx"]
 
     cat_list = list(idx2category.values())
-    # print("idx2category: ", cat_list)
     # print(cat_list.index("mantel")) #34
     # quit()
     
@@ -35,13 +34,10 @@ def plot_confusion_matrix(model_dict, fig_size=(13,10), file_name="src/eval_data
     for val in false_pred:
         idx = val.item()
         res[labels_all[idx], pred[idx]] += 1
-        # print(labels_all[idx], pred[idx])
 
     
     res_norm = F.softmax(res, dim=1)
     
-    # print("res_norm: ", res_norm)
-    # print(len(labels_all))
     # result = []
     # for i in range(len(cat_list)):
     #     idx = torch.where(labels_all == i)[0]
@@ -51,7 +47,6 @@ def plot_confusion_matrix(model_dict, fig_size=(13,10), file_name="src/eval_data
     #     # break
     # result = torch.stack(result)
     # res_norm = F.softmax(result, dim=1)
-    # print("result: ", res_norm.shape)
 
     df = pd.DataFrame(res_norm.numpy())
 
@@ -109,7 +104,6 @@ if __name__ == '__main__':
 #     # print("idx2category: ", cat_list)
 #     # quit()
 #     # print("mn_per_cat_acc: ", mn_per_cat_acc)
-#     print("labels_all: ", labels_all.shape)
 #     # print("logits_all: ", logits_all)
 
 #     _, pred = logits_all.topk(1, 1, True, True)
@@ -118,10 +112,8 @@ if __name__ == '__main__':
 #     # print("labels_all: ", labels_all)
 #     # print("indices: ", pred.shape)
 
-#     print("some: ", torch.argwhere(pred == labels_all).shape)
 #     true_pred = torch.argwhere(pred == labels_all).reshape(-1)
 #     false_pred = torch.argwhere(pred != labels_all).reshape(-1)
-#     print("false_pred: ", false_pred.shape)
 
 #     res = torch.zeros(40, 40)
 #     for val in true_pred:
@@ -135,7 +127,6 @@ if __name__ == '__main__':
 
 #     # res[39, 10] = 90
 #     res_norm = F.softmax(res, dim=1)
-#     print("res_norm: ", res_norm)
 #     # print(len(labels_all))
 #     # result = []
 #     # for i in range(len(cat_list)):
@@ -168,7 +159,6 @@ if __name__ == '__main__':
 
 #     cat_list = list(idx2category.values())
 
-#     print("idx2category: ", len(cat_list))
 
 #     result = []
 #     for i in range(len(idx2category)):

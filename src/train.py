@@ -9,7 +9,6 @@ import torch.distributed.nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from collections import OrderedDict
-# from minlora import get_lora_state_dict
 
 from utils_func import hf_hub_download
 
@@ -94,7 +93,7 @@ class Trainer(object):
         logging.info("----Best lvis acc: {}".format(self.best_lvis_acc))
     
     def load_from_online(self, model_name):
-        print("Loading model: ", model_name)
+        logging.info("Loading model: {}".format(model_name))
 
         checkpoint = torch.load(hf_hub_download(repo_id=model_name, filename="model.pt"))
         model_dict = OrderedDict()
@@ -103,10 +102,6 @@ class Trainer(object):
             if re.search("module", k):
                 model_dict[re.sub(pattern, '', k)] = v
         self.model.load_state_dict(checkpoint['state_dict'])
-        # self.model.load_state_dict(model_dict)
-
-        # checkpoint = torch.load(path)
-        # self.model.load_state_dict(checkpoint['state_dict'])
 
         if self.config.training.use_text_proj:
             self.text_proj.load_state_dict(checkpoint['text_proj'])
@@ -124,7 +119,6 @@ class Trainer(object):
         self.best_modelnet40_class_acc = checkpoint['best_modelnet40_class_acc']
         self.best_lvis_acc = checkpoint['best_lvis_acc']
 
-        # logging.info("Loaded checkpoint from {}".format(path))
         logging.info("----Epoch: {0} Step: {1}".format(self.epoch, self.step))
         logging.info("----Best img contras acc: {}".format(self.best_img_contras_acc))
         logging.info("----Best text contras acc: {}".format(self.best_text_contras_acc))
@@ -134,7 +128,6 @@ class Trainer(object):
 
     def contras_loss(self, feat1, feat2, logit_scale=1, mask = None):
         # feat1 batch_size x 1280   feat2 batch_size x 1280  
-        print("feat1: ", feat1.shape)
         if self.config.ngpu > 1:
             feat1 = F.normalize(feat1, dim=1)
             feat2 = F.normalize(feat2, dim=1)
@@ -145,9 +138,7 @@ class Trainer(object):
             logits = logit_scale * F.normalize(feat1, dim=1) @ F.normalize(feat2, dim=1).T
         if mask is not None:
             logits = logits * mask
-        print("logits: ", logits.shape) # batch_size x batch_size
         labels = torch.arange(logits.shape[0]).to(self.config.device)
-        print("labels: ", labels)
         accuracy = (logits.argmax(dim=1) == labels).float().mean()
         loss = (F.cross_entropy(logits, labels) + F.cross_entropy(logits.T, labels)) / 2
         return loss, accuracy
@@ -168,10 +159,7 @@ class Trainer(object):
             mask2 = np.kron(np.eye(s), np.ones((k, k))).astype(np.bool)
             mask_other = torch.from_numpy(np.logical_or(mask1, 1 - mask2)).bool().to(self.config.device)
 
-        # for data in tqdm(self.train_loader):
         for data in self.train_loader:
-            # print("xyz: ", data['xyz'].shape)
-            # print("features: ", data['features'].shape)
             self.step += 1
             self.optimizer.zero_grad()
             loss = 0
@@ -189,9 +177,7 @@ class Trainer(object):
             elif self.config.text_model == "vico":
                 vico_feat = self.vico_feat_dict[data["category"]]
                 text_feat = torch.vstack(vico_feat).to(self.config.device)
-            print("img_feat: ", data['img_feat'].shape)
             img_feat = torch.vstack(data['img_feat']).to(self.config.device) 
-            print("img_feat_later: ", img_feat.shape)
 
             if self.config.training.use_mask:
                 img_text_sim = F.normalize(img_feat, dim=-1) @ F.normalize(text_feat, dim=-1).T
@@ -203,14 +189,12 @@ class Trainer(object):
             if len(idx) > 0:
                 if self.config.training.use_text_proj:
                     text_feat = self.text_proj(text_feat)
-                print("text_feat: ", text_feat.shape)
                 text_contras_loss, text_contras_acc = self.contras_loss(pred_feat[idx], text_feat, logit_scale=logit_scale, mask=mask)
                 loss += text_contras_loss * self.config.training.lambda_text_contras 
                 text_contras_acc_list.append(text_contras_acc.item())
 
             if self.config.training.use_image_proj:
                 img_feat = self.image_proj(img_feat)
-            print("img_feat: ", img_feat.shape)
             img_contras_loss, img_contras_acc = self.contras_loss(pred_feat, img_feat, logit_scale=logit_scale, mask=mask)
             loss += img_contras_loss * self.config.training.lambda_img_contras
             loss.backward()
@@ -261,10 +245,6 @@ class Trainer(object):
             "best_modelnet40_class_acc": self.best_modelnet40_class_acc,
             "best_lvis_acc": self.best_lvis_acc,
         }
-        # if self.lora_used:
-        #     lora_state_dict = get_lora_state_dict(self.model)
-        #     torch_dict["lora_state_dict"] = lora_state_dict
-
         torch.save(torch_dict, os.path.join(self.config.ckpt_dir, '{}.pt'.format(name)))
 
     def accuracy(self, output, target, topk=(1,)):
@@ -298,8 +278,10 @@ class Trainer(object):
                 divmod(time_per_epoch, 60)[0] % 60,
                 time_per_epoch % 60,
             )
-            print(f"Time taken for epoch {epoch}: {formatted_time}")
-            
+            if self.rank == 0:
+                logging.info(f"Time taken for epoch {epoch}: {formatted_time}")
+
+            # Per-epoch evaluation is currently disabled; uncomment to track the best LVIS checkpoint.
             # if self.rank == 0:
             #     # self.save_model('latest')
             #     # self.test_modelnet40()

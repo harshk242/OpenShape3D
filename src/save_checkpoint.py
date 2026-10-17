@@ -30,23 +30,6 @@ checkpoint['state_dict'] = model_dict
 
 torch.save(checkpoint, "pretrained/openshape-pointbert-vitg14-rgb/checkpoint.pt")
 
-# model.load_state_dict(checkpoint['state_dict'])
-
-# if config.training.use_text_proj:
-#     text_proj.load_state_dict(checkpoint['text_proj'])
-# if config.training.use_image_proj:
-#     image_proj.load_state_dict(checkpoint['image_proj'])
-# logit_scale.load_state_dict(checkpoint['logit_scale']) #module.logit_scale = checkpoint['logit_scale']
-# optimizer.load_state_dict(checkpoint['optimizer'])
-# if config.training.use_openclip_optimizer_scheduler == False:
-#     scheduler.load_state_dict(checkpoint['scheduler'])
-# epoch = checkpoint['epoch']
-# step = checkpoint['step']
-# best_img_contras_acc = checkpoint['best_img_contras_acc']
-# best_text_contras_acc = checkpoint['best_text_contras_acc']
-# best_modelnet40_overall_acc = checkpoint['best_modelnet40_overall_acc']
-# best_modelnet40_class_acc = checkpoint['best_modelnet40_class_acc']
-# best_lvis_acc = checkpoint['best_lvis_acc']
 
 print("Model loaded from checkpoint")
 # print("Model: ", model)

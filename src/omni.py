@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
@@ -9,12 +10,14 @@ import json
 from utils.data import normalize_pc
 from utils_func import calc_accuracy
 
-OMNI_HDF5_DIR = "/projectnb/ivc-ml/harshk/3d_perception/OmniObject3D/data/OpenXD-OmniObject3D-New/raw/point_clouds/hdf5_files/1024"
-OMNI_PLY_DIR = "/projectnb/ivc-ml/harshk/3d_perception/OmniObject3D/data/OpenXD-OmniObject3D-New/raw/point_clouds/ply_files"
+def get_omni_dir(env_var):
+    # OmniObject3D point cloud dirs, e.g. .../raw/point_clouds/hdf5_files/1024 and .../raw/point_clouds/ply_files
+    path = os.environ.get(env_var)
+    if path is None:
+        raise RuntimeError(f"Set the {env_var} environment variable to the OmniObject3D point cloud directory.")
+    return path
 
 def load_omni_hdf5_data(num_points = 1024):
-    # common_objs = get_objects("/projectnb/ivc-ml/harshk/3d_perception/common_objs.json")
-    # modelnet_objs = get_objects("/projectnb/ivc-ml/harshk/3d_perception/modelnet_objs.json")
     omni_dict = np.load("../meta_data/omni_dict.npy", allow_pickle=True).item()
     idx2category = omni_dict['idx2category']
     category2idx = omni_dict['category2idx']
@@ -22,18 +25,18 @@ def load_omni_hdf5_data(num_points = 1024):
 
     all_data = []
     all_label = []
-    omni_list = os.listdir(OMNI_HDF5_DIR)
+    omni_hdf5_dir = get_omni_dir("OMNI_HDF5_DIR")
+    omni_list = os.listdir(omni_hdf5_dir)
 
     for fname in omni_list:
         obj = fname.split('_')[0]
         if obj in keys:
-            f = h5py.File(os.path.join(OMNI_HDF5_DIR, obj+"_" + str(num_points) + ".hdf5"), 'r+')
+            f = h5py.File(os.path.join(omni_hdf5_dir, obj+"_" + str(num_points) + ".hdf5"), 'r+')
             data = f['data'][0].astype('float64')
             idx = category2idx[obj]
             
             # label = f['label'][:].astype('int64')
             f.close()
-            # print("data-shape: ", data.shape)
             all_data.append([data])
             all_label.append([idx])
     all_data = np.concatenate(all_data, axis=0)
@@ -41,12 +44,11 @@ def load_omni_hdf5_data(num_points = 1024):
 
     print("all_data: ", all_data.shape)
     print("all_label: ", all_label.shape)
-    print(all_label)
 
     return all_data, all_label
 
 def load_omni_ply_data(num_points = 1024):
-    point_dir = os.path.join(OMNI_PLY_DIR, str(num_points))
+    point_dir = os.path.join(get_omni_dir("OMNI_PLY_DIR"), str(num_points))
     omni_dict = np.load("../meta_data/omni_dict.npy", allow_pickle=True).item()
     idx2category = omni_dict['idx2category']
     category2idx = omni_dict['category2idx']
@@ -60,14 +62,11 @@ def load_omni_ply_data(num_points = 1024):
         if obj in keys:
             obj_label = category2idx[obj]
             sub_dir = os.path.join(point_dir, obj)
-            # print("sub_dir: ", sub_dir)
             instance_list = os.listdir(sub_dir)
             for ins in instance_list:
                 ins_np = np.zeros((num_points, 3))
                 ins_dir = os.path.join(sub_dir, ins)
-                # print("ins_dir: ", ins_dir)
                 ply_file = os.path.join(ins_dir, "pcd_" + str(num_points) + ".ply")
-                # print("ply_file: ", ply_file)
                 if os.path.exists(ply_file):
                     plydata = PlyData.read(ply_file)
                     ins_np[:, 0] = plydata['vertex']['x']
@@ -82,7 +81,6 @@ def load_omni_ply_data(num_points = 1024):
 
     print("all_data: ", all_data.shape)
     print("all_label: ", all_label.shape)
-    # print(all_label)
 
     return all_data, all_label
     
@@ -96,15 +94,12 @@ class OmniObject3D(Dataset):
         self.categories = sorted(np.unique([data['category'] for data in self.split]))
         self.category2idx = {self.categories[i]: i for i in range(len(self.categories))}
         self.clip_cat_feat = np.load(config.objaverse_lvis.clip_feat_path, allow_pickle=True)
-        # print("Init..")
         # logging.info("ObjaverseLVIS: %d samples" % (len(self.split)))
         # logging.info("----clip feature shape: %s" % str(self.clip_cat_feat.shape))
 
     def __getitem__(self, index: int):
-        # print("index: ", index)
         path = self.split[index]['data_path'][1:]
         data = np.load(path, allow_pickle=True).item()
-        # print("data[xyz]: ", data['xyz'].shape)
         n = data['xyz'].shape[0]
         idx = random.sample(range(n), self.num_points)
         xyz = data['xyz'][idx]
@@ -182,11 +177,6 @@ def test_objaverse_lvis(model, config, objaverse_lvis_loader, text_proj, device)
 
     with torch.no_grad():
         for data in objaverse_lvis_loader:
-            # if not config.model.get("use_dense", False):
-            #     pred_feat = model(data['xyz'], data['features'], \
-            #                             device = device, \
-            #                             quantization_size = config.model.voxel_size)
-            # else:
 
             data['xyz_dense'] = data['xyz_dense'].to(device)
             data['features_dense'] = data['features_dense'].to(device)
@@ -194,7 +184,6 @@ def test_objaverse_lvis(model, config, objaverse_lvis_loader, text_proj, device)
             pred_feat = model(data['xyz_dense'], data['features_dense'])
             logits = F.normalize(pred_feat, dim=1) @ F.normalize(clip_text_feat, dim=1).T
             labels = data['category'].to(device)
-            # print("group: ", data['group'])
             data_xyz.append(data['xyz_dense'])
             logits_all.append(logits.detach())
             labels_all.append(labels)
@@ -220,24 +209,9 @@ def test_objaverse_lvis(model, config, objaverse_lvis_loader, text_proj, device)
     objaverse_dict["idx2category"] = idx2category
     torch.save(objaverse_dict, "src/eval_data/objaverse_dict.pt")
 
-    # torch.save(per_cat_acc.clone().detach().cpu(), "src/eval_data/ov_per_cat_acc.pt")
-    # torch.save(torch.cat(labels_all).detach().cpu(), "src/eval_data/ov_labels_all.pt")
-    # torch.save(torch.cat(logits_all).detach().cpu(), "src/eval_data/ov_logits_all.pt")
-    # torch.save(category2idx, "src/eval_data/ov_category2idx.pt")
-    # torch.save(idx2category, "src/eval_data/ov_idx2category.pt")
-
-    # if overall_acc > self.best_lvis_acc:
-    #     self.best_lvis_acc = overall_acc
-    #     self.save_model('best_lvis')
 
     print('Test ObjaverseLVIS: overall acc: {0} class_acc: {1}'.format(overall_acc, per_cat_acc.mean()))
     print('Test ObjaverseLVIS: top1_acc: {0} top3_acc: {1} top5_acc: {2}'.format(topk_acc[0].item(), topk_acc[1].item(), topk_acc[2].item()))
-    # wandb.log({"test_lvis/epoch": self.epoch,
-    #             "test_lvis/step": self.step,
-    #             "test_lvis/overall_acc": overall_acc,
-    #             "test_lvis/class_acc": per_cat_acc.mean(),
-    #             "test_lvis/top3_acc": topk_acc[1],
-    #             "test_lvis/top5_acc": topk_acc[2],})
 
 
 def xyz_objaverse_lvis(objaverse_lvis_loader, device):

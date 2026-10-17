@@ -4,7 +4,6 @@ import logging
 import shutil
 import data
 import models
-# import MinkowskiEngine as ME
 import torch
 import wandb
 from omegaconf import OmegaConf
@@ -12,43 +11,24 @@ from datetime import datetime
 from param import parse_args
 from utils.misc import load_config, dump_config    
 from utils.logger import setup_logging
+from utils.distributed import setup, setup_cache, cleanup
 from utils.scheduler import cosine_lr
 from train import Trainer
 from train_triplet_loss import TripletTrainer
 from models.LogitScaleNetwork import LogitScaleNetwork
-import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.multiprocessing as mp
 
 from utils_func import load_model
 
-# cat_list = ['goldfish', 'fish', 'salmon_(fish)', 'earphone', 'headset', 'blazer', 'jacket', 'teakettle', 'teapot', 'kettle']
 cat_list = None
 
-def setup(rank, world_size, port='12356'):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = port
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-
-def setup_cache(config):
-    if config.cache_dir is not None:
-        print("Setting cache: ", config.cache_dir)
-        os.environ['TORCH_HOME'] = os.path.join(config.cache_dir, 'torch')
-        os.environ['TRANSFORMERS_CACHE'] = os.path.join(config.cache_dir, 'huggingface', 'transformers')
-        os.environ['HF_DATASETS_CACHE'] = os.path.join(config.cache_dir, 'huggingface', 'datasets')
-        os.environ['HF_HOME'] = os.path.join(config.cache_dir, 'huggingface', 'home')
-
-def cleanup():
-    dist.destroy_process_group()
 
 def main(rank, world_size, cli_args, extras):
-    print("cli_args: ", cli_args)
-    print("rank: ", rank)
     setup(rank, world_size, cli_args.port)
 
     config = load_config(cli_args.config, cli_args = vars(cli_args), extra_args = extras)
     setup_cache(config)
-    print("config: ", config)
 
     torch.manual_seed(config.random_seed)
 
@@ -91,10 +71,6 @@ def main(rank, world_size, cli_args, extras):
         torch.cuda.set_device(rank)
         model.cuda(rank)
         model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
-        # if config.model.name.startswith('Mink'):
-        #     model = ME.MinkowskiSyncBatchNorm.convert_sync_batchnorm(model) # minkowski only
-        #     logging.info("Using MinkowskiSyncBatchNorm")
-        # else:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
         logging.info("Using SyncBatchNorm")
 
@@ -107,17 +83,15 @@ def main(rank, world_size, cli_args, extras):
         text_proj = DDP(text_proj, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
         train_loader = data.make(config, 'train', rank, world_size, cat_list, True)
-        print("train_loader size: ", len(train_loader))
-        print("train_loader dataset size: ", len(train_loader.dataset))
+        logging.info("train_loader size: {}".format(len(train_loader)))
+        logging.info("train_loader dataset size: {}".format(len(train_loader.dataset)))
 
         if rank == 0:
             modelnet40_loader = data.make_modelnet40test(config)
             objaverse_lvis_loader = data.make_objaverse_lvis(config)
             scanobjectnn_loader = data.make_scanobjectnntest(config)
-            # print("modelnet40_loader size: ", len(modelnet40_loader.dataset))
-            print("objaverse_lvis_loader size: ", len(objaverse_lvis_loader))
-            print("objaverse_lvis_loader dataset size: ", len(objaverse_lvis_loader.dataset))
-            # print("scanobjectnn_loader size: ", len(scanobjectnn_loader.dataset))
+            logging.info("objaverse_lvis_loader size: {}".format(len(objaverse_lvis_loader)))
+            logging.info("objaverse_lvis_loader dataset size: {}".format(len(objaverse_lvis_loader.dataset)))
         else:
             modelnet40_loader = None
             objaverse_lvis_loader = None
@@ -133,25 +107,12 @@ def main(rank, world_size, cli_args, extras):
             # Step 1: Freeze all parameters
             for name, param in model.named_parameters():
                 param.requires_grad = False
-                # logging.info(f"Freezing {name}")
             
-            # Step 2: Unfreeze the 11th layer of the transformer
+            # Step 2: Unfreeze the projection head
             for name, param in model.named_parameters():
-                # if name.find("ppat.transformer.layers.11") != -1:
-                #     param.requires_grad = True
-                #     logging.info(f"Unfreezing {name}")
                 if name.find("proj") != -1:
                     param.requires_grad = True
                     logging.info(f"Unfreezing {name}")
-
-            # for name, param in model.ppat.transformer.layers[10].named_parameters():
-            #     param.requires_grad = True
-            #     logging.info(f"Unfreezing {name}")
-
-            # Step 3: Unfreeze the projection layer
-            # for name, param in model.proj.named_parameters():
-            #     param.requires_grad = True
-            #     logging.info(f"Unfreezing {name}")
 
         params = list(model.parameters()) + list(image_proj.parameters()) + list(text_proj.parameters()) + list(logit_scale.parameters()) 
         if config.training.use_openclip_optimizer_scheduler:

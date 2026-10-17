@@ -9,7 +9,6 @@ import torch.distributed.nn
 import torch.nn.functional as F
 from tqdm import tqdm
 from collections import OrderedDict
-# from minlora import get_lora_state_dict
 from sklearn.neighbors import NearestNeighbors
 
 from utils_func import hf_hub_download
@@ -103,7 +102,7 @@ class TripletTrainer(object):
         logging.info("----Best lvis acc: {}".format(self.best_lvis_acc))
     
     def load_from_online(self, model_name):
-        print("Loading model: ", model_name)
+        logging.info("Loading model: {}".format(model_name))
 
         checkpoint = torch.load(hf_hub_download(repo_id=model_name, filename="model.pt"))
         model_dict = OrderedDict()
@@ -112,10 +111,6 @@ class TripletTrainer(object):
             if re.search("module", k):
                 model_dict[re.sub(pattern, '', k)] = v
         self.model.load_state_dict(checkpoint['state_dict'])
-        # self.model.load_state_dict(model_dict)
-
-        # checkpoint = torch.load(path)
-        # self.model.load_state_dict(checkpoint['state_dict'])
 
         if self.config.training.use_text_proj:
             self.text_proj.load_state_dict(checkpoint['text_proj'])
@@ -133,7 +128,6 @@ class TripletTrainer(object):
         self.best_modelnet40_class_acc = checkpoint['best_modelnet40_class_acc']
         self.best_lvis_acc = checkpoint['best_lvis_acc']
 
-        # logging.info("Loaded checkpoint from {}".format(path))
         logging.info("----Epoch: {0} Step: {1}".format(self.epoch, self.step))
         logging.info("----Best img contras acc: {}".format(self.best_img_contras_acc))
         logging.info("----Best text contras acc: {}".format(self.best_text_contras_acc))
@@ -143,7 +137,6 @@ class TripletTrainer(object):
 
     def contras_loss(self, feat1, feat2, logit_scale=1, mask = None):
         # feat1 batch_size x 1280   feat2 batch_size x 1280  
-        # print("feat1: ", feat1.shape)
         if self.config.ngpu > 1:
             feat1 = F.normalize(feat1, dim=1)
             feat2 = F.normalize(feat2, dim=1)
@@ -154,7 +147,6 @@ class TripletTrainer(object):
             logits = logit_scale * F.normalize(feat1, dim=1) @ F.normalize(feat2, dim=1).T
         if mask is not None:
             logits = logits * mask
-        # print("logits: ", logits.shape) # batch_size x batch_size
         labels = torch.arange(logits.shape[0]).to(self.config.device)
         accuracy = (logits.argmax(dim=1) == labels).float().mean()
         loss = (F.cross_entropy(logits, labels) + F.cross_entropy(logits.T, labels)) / 2
@@ -173,12 +165,6 @@ class TripletTrainer(object):
         neg_txt_logits = logit_scale * F.normalize(pred_feat, dim=1) @ F.normalize(txt_feat_nbr_mat, dim=1).T
         pos_img_logits = logit_scale * F.normalize(pred_feat, dim=1) @ F.normalize(img_feat, dim=1).T
         neg_img_logits = logit_scale * F.normalize(pred_feat, dim=1) @ F.normalize(img_feat_nbr_mat, dim=1).T
-
-        #Using only diagonal
-        # pos_txt_logits = torch.diag(pos_txt_logits)
-        # neg_txt_logits = torch.diag(neg_txt_logits)
-        # pos_img_logits = torch.diag(pos_img_logits)
-        # neg_img_logits = torch.diag(neg_img_logits)
 
         # Calculating the triplet loss
         txt_triplet_loss = torch.clamp(neg_txt_logits - pos_txt_logits + margin, 0, None) 
@@ -208,8 +194,6 @@ class TripletTrainer(object):
         # Calculating the triplet loss
         txt_triplet_loss = torch.clamp(neg_txt_logits - pos_txt_logits + margin, 0, None)
         img_triplet_loss = torch.clamp(neg_img_logits - pos_img_logits + margin, 0, None)
-        # print("txt_triplet_loss: ", txt_triplet_loss.shape)
-        # print("img_triplet_loss: ", img_triplet_loss.shape)
         triplet_loss = txt_triplet_loss.mean() + img_triplet_loss.mean()
 
         return triplet_loss
@@ -231,9 +215,6 @@ class TripletTrainer(object):
             mask_other = torch.from_numpy(np.logical_or(mask1, 1 - mask2)).bool().to(self.config.device)
 
         for data in tqdm(self.train_loader):
-        # for data in self.train_loader:
-            # print("xyz: ", data['xyz'].shape)
-            # print("features: ", data['features'].shape)
             self.step += 1
             self.optimizer.zero_grad()
             contras_loss = 0
@@ -251,7 +232,6 @@ class TripletTrainer(object):
             elif self.config.text_model == "vico":
                 vico_feat = self.vico_feat_dict[data["category"]]
                 text_feat = torch.vstack(vico_feat).to(self.config.device)
-            # print("img_feat: ", data['img_feat'].shape)
             img_feat = torch.vstack(data['img_feat']).to(self.config.device) 
 
             if self.config.training.use_mask:
@@ -274,7 +254,6 @@ class TripletTrainer(object):
                 
             img_contras_loss, img_contras_acc = self.contras_loss(pred_feat, img_feat, logit_scale=logit_scale, mask=mask)
             contras_loss += img_contras_loss * self.config.training.lambda_img_contras
-            # print("contras_loss: ", loss)
             loss = contras_loss * self.config.training.contras_loss_weight
 
             triplet_loss = 0
@@ -282,7 +261,6 @@ class TripletTrainer(object):
                 triplet_loss = self.triplet_loss(pred_feat.cpu(), text_feat.cpu(), img_feat.cpu(), 
                                                  logit_scale=logit_scale.cpu(), margin=self.config.training.triplet_loss_margin)
                 loss += triplet_loss * self.config.training.triplet_loss_weight
-            # print("triplet_loss: ", triplet_loss)
 
             loss.backward()
             self.optimizer.step()
@@ -335,10 +313,6 @@ class TripletTrainer(object):
             "best_modelnet40_class_acc": self.best_modelnet40_class_acc,
             "best_lvis_acc": self.best_lvis_acc,
         }
-        # if self.lora_used:
-        #     lora_state_dict = get_lora_state_dict(self.model)
-        #     torch_dict["lora_state_dict"] = lora_state_dict
-
         torch.save(torch_dict, os.path.join(self.config.ckpt_dir, '{}.pt'.format(name)))
 
     def accuracy(self, output, target, topk=(1,)):
@@ -359,7 +333,6 @@ class TripletTrainer(object):
 
     def train(self):
         best_lvis_acc = 0
-        # overall_acc = self.test_objaverse_lvis()
         for epoch in range(self.epoch, self.config.training.max_epoch):
             self.epoch = epoch
             if self.rank == 0:
@@ -373,18 +346,15 @@ class TripletTrainer(object):
                 divmod(time_per_epoch, 60)[0] % 60,
                 time_per_epoch % 60,
             )
-            print(f"Time taken for epoch {epoch}: {formatted_time}")
+            if self.rank == 0:
+                logging.info(f"Time taken for epoch {epoch}: {formatted_time}")
             
             if self.rank == 0 and self.epoch % self.config.training.save_freq == 0:
-                # self.save_model('latest')
-                # self.test_modelnet40()
                 overall_acc = self.test_objaverse_lvis()
                 if overall_acc > best_lvis_acc:
                     best_lvis_acc = overall_acc
                     self.save_model('best_lvis')
                     logging.info("Best LVIS acc: {}".format(best_lvis_acc))
-            # if self.rank == 0 and self.epoch % self.config.training.save_freq == 0:
-            #     self.save_model('epoch_{}'.format(self.epoch))
 
     def test_modelnet40(self):
         self.model.eval()
@@ -422,8 +392,6 @@ class TripletTrainer(object):
 
         overall_acc = per_cat_correct.sum() / per_cat_count.sum()
         per_cat_acc = per_cat_correct / per_cat_count
-        #for i in range(40):
-        #    print(idx2category[i], per_cat_acc[i])
 
         if overall_acc > self.best_modelnet40_overall_acc:
             self.best_modelnet40_overall_acc = overall_acc

@@ -9,6 +9,9 @@ src/eval_data
 # src/eval_data/ov_features.pt
 exp
 wandb
+# model checkpoints
+*.pt
+*.pth
 .vscode
 finetune
 batch_jobs

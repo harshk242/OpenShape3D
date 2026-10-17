@@ -19,16 +19,12 @@ class ObjaverseLVIS(Dataset):
         self.categories = sorted(np.unique([data['category'] for data in self.split]))
         self.category2idx = {self.categories[i]: i for i in range(len(self.categories))}
         self.clip_cat_feat = np.load(config.objaverse_lvis.clip_feat_path, allow_pickle=True)
-        # print("Init..")
         # logging.info("ObjaverseLVIS: %d samples" % (len(self.split)))
         # logging.info("----clip feature shape: %s" % str(self.clip_cat_feat.shape))
 
     def __getitem__(self, index: int):
-        # print("index: ", index)
         path = self.split[index]['data_path'][1:]
         data = np.load(path, allow_pickle=True).item()
-        # print("data: ", data.keys())
-        # print("data[xyz]: ", data['xyz'].shape)
         n = data['xyz'].shape[0]
         idx = random.sample(range(n), self.num_points)
         xyz = data['xyz'][idx]
@@ -117,20 +113,12 @@ def test_objaverse_lvis(model, config, objaverse_lvis_loader, text_proj, device)
     runs = 0
     with torch.no_grad():
         for data in tqdm(objaverse_lvis_loader):
-            # if not config.model.get("use_dense", False):
-            #     pred_feat = model(data['xyz'], data['features'], \
-            #                             device = device, \
-            #                             quantization_size = config.model.voxel_size)
-            # else:
-            # print("data: ", data['xyz_dense'].shape)
             data['xyz_dense'] = data['xyz_dense'].to(device)
             data['features_dense'] = data['features_dense'].to(device)
             
             pred_feat = model(data['xyz_dense'], data['features_dense'])
             logits = F.normalize(pred_feat, dim=1) @ F.normalize(clip_text_feat, dim=1).T
             labels = data['category'].to(device)
-            # print("labels: ", labels)
-            # print("group: ", data['group'])
             data_xyz.append(data['xyz_dense'])
             logits_all.append(logits.detach())
             labels_all.append(labels)
@@ -143,9 +131,7 @@ def test_objaverse_lvis(model, config, objaverse_lvis_loader, text_proj, device)
                     per_cat_correct[i] += (logits[idx].argmax(dim=1) == labels[idx]).float().sum()
                     per_cat_count[i] += idx.sum()
             runs += 1
-            # print("runs complete: ", runs)
     unique_labels = torch.unique(torch.cat(unique_labels)).long()
-    print("unique_labels: ", unique_labels)
     print("unique_labels shape: ", unique_labels.shape)
     
     topk_acc, correct = calc_accuracy(torch.cat(logits_all), torch.cat(labels_all), topk=(1,3,5,))
@@ -168,24 +154,9 @@ def test_objaverse_lvis(model, config, objaverse_lvis_loader, text_proj, device)
         print("Exporting ObjaverseLVIS results...")
         torch.save(objaverse_dict, "src/eval_data/objaverse_dict.pt")
 
-    # torch.save(per_cat_acc.clone().detach().cpu(), "src/eval_data/ov_per_cat_acc.pt")
-    # torch.save(torch.cat(labels_all).detach().cpu(), "src/eval_data/ov_labels_all.pt")
-    # torch.save(torch.cat(logits_all).detach().cpu(), "src/eval_data/ov_logits_all.pt")
-    # torch.save(category2idx, "src/eval_data/ov_category2idx.pt")
-    # torch.save(idx2category, "src/eval_data/ov_idx2category.pt")
-
-    # if overall_acc > self.best_lvis_acc:
-    #     self.best_lvis_acc = overall_acc
-    #     self.save_model('best_lvis')
 
     print('Test ObjaverseLVIS: overall acc: {0} class_acc: {1}'.format(overall_acc, per_cat_acc.mean()))
     print('Test ObjaverseLVIS: top1_acc: {0} top3_acc: {1} top5_acc: {2}'.format(topk_acc[0].item(), topk_acc[1].item(), topk_acc[2].item()))
-    # wandb.log({"test_lvis/epoch": self.epoch,
-    #             "test_lvis/step": self.step,
-    #             "test_lvis/overall_acc": overall_acc,
-    #             "test_lvis/class_acc": per_cat_acc.mean(),
-    #             "test_lvis/top3_acc": topk_acc[1],
-    #             "test_lvis/top5_acc": topk_acc[2],})
 
     return objaverse_dict
 
