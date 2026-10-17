@@ -23,7 +23,7 @@ class FinetuneLoader(Dataset):
         lvis_test = json.load(open(lvis_test_file, "r"))
 
         cat_idx_list = [ov_category2idx[cat] for cat in cat_list]
-        print("cat_idx_list: ", cat_idx_list)
+        logging.info("cat_idx_list: {}".format(cat_idx_list))
 
         filter_data = {}
         for i in cat_idx_list:
@@ -36,7 +36,6 @@ class FinetuneLoader(Dataset):
 
         train_data = []
         test_data = []
-        # print("filter_data: ", filter_data[562])
 
         for key, val in filter_data.items():
             # logging.info(f"Category: {ov_idx2category[key]}, Size: {len(val)}")
@@ -72,13 +71,6 @@ class FinetuneLoader(Dataset):
             self.data = np.array(test_data)
 
         elif split == "all":
-            # train_file = json.load(open(train_lvis_filtered, "r"))
-            # test_file = json.load(open(test_lvis_filtered, "r"))
-            # data = []
-            # for k, v in train_file.items():
-            #     data.extend(v)
-            # for k, v in test_file.items():
-            #     data.extend(v)
             self.data = np.array(train_data + test_data)
             assert len(self.data) == len(train_data) + len(test_data)
         else:

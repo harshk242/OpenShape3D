@@ -26,12 +26,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device("cpu")
 print("Using device: ", device)
 
-# model = load_model(config, model_name=model_name)
-# model.to(device)
 
 if config.resume is not None:
     model = load_model_from_path(config, config.resume, device)
-    # model = load_lora_model_from_path(config, config.resume, device)
 else:
     # model_name = "OpenShape/openshape-pointbert-no-lvis"
     # model_name = "OpenShape/openshape-pointbert-shapenet"
@@ -40,32 +37,6 @@ else:
     model = load_model(config, model_name=model_name)
     model.to(device)
 
-
-# print("model: ", model)
-# quit()
-
-# config = load_config(config)
-# if config.autoresume:
-#     config.trial_name = config.get('trial_name') + "@autoresume"
-# else:
-#     config.trial_name = config.get('trial_name') + datetime.now().strftime('@%Y%m%d-%H%M%S')
-# config.ckpt_dir = config.get('ckpt_dir') or os.path.join(config.exp_dir, config.trial_name, 'ckpt')
-# config.code_dir = config.get('code_dir') or os.path.join(config.exp_dir, config.trial_name, 'code')
-
-# config.device = 'cuda:{0}'.format(rank) 
-
-# model = models.make(config).to(device)
-# if rank == 0:
-#     total_params = sum(p.numel() for p in model.parameters())
-#     logging.info(model)
-#     logging.info("Network:{}, Number of parameters: {}".format(config.model.name, total_params))
-
-# torch.cuda.set_device(rank)
-# model.cuda(rank)
-# model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
-
-# model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-# logging.info("Using SyncBatchNorm")
 
 logit_scale = LogitScaleNetwork(config.training.logit_scale_init).to(device)
 image_proj = torch.nn.Linear(config.model.out_channel, config.model.out_channel).to(device)
@@ -80,8 +51,6 @@ phase = "test"
 
 print("objaverse_lvis total batches: ", len(objaverse_lvis_loader))
 print("objaverse_lvis dataset size: ", len(objaverse_lvis_loader.dataset))
-# print("finetune_test_loader batches: ", len(finetune_test_loader))
-# print("finetune_test_loader dataset size: ", len(finetune_test_loader.dataset))
 
 
 # test_modelnet40(model, config, modelnet40_loader, text_proj, device)

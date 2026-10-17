@@ -32,19 +32,11 @@ print("objaverse_lvis_loader dataset size: ", len(objaverse_lvis_loader.dataset)
 with torch.no_grad():
     for data in tqdm(objaverse_lvis_loader):
         if idx > -1:
-            # print("data: ", data.keys())
             image_feat = data["image_feat"]
             all_image_feat.append(image_feat)
-            # print("image_feat: ", image_feat.shape)
-            # print("category: ", data["category"].shape)
-            # print("xyz_dense: ", data["xyz_dense"].shape)
             idx += 1
         else:
             break
 all_image_feat = np.concatenate(all_image_feat, axis=0)
 print("all_image_feat: ", all_image_feat.shape)
 np.save("meta_data/all_image_feat.npy", all_image_feat)
-
-# all_image_feat = np.load("meta_data/all_image_feat.npy")
-# print("all_image_feat: ", all_image_feat.shape)
-# print("all_image_feat: ", all_image_feat[0])

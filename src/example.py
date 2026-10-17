@@ -91,13 +91,9 @@ def load_ply(file_name, num_points=10000, y_up=True):
     features = np.concatenate([xyz, rgb], axis=1)
     xyz = torch.from_numpy(xyz).type(torch.float32)
     features = torch.from_numpy(features).type(torch.float32)
-    # print("xyz: ", xyz.shape)
-    # print("features: ", features.shape)
-    # print("batch: ", xyz.unsqueeze(0).shape)
     # xyz:  torch.Size([10000, 3])
     # features:  torch.Size([10000, 6])
     # xyz = batched_coordinates([xyz], dtype=torch.float32)
-    # print("xyz: ", xyz.shape)
     return xyz.unsqueeze(0), features.unsqueeze(0)
     # return xyz, features
     return ME.utils.batched_coordinates([xyz], dtype=torch.float32), features
@@ -137,12 +133,7 @@ config = load_config("src/configs/train.yaml", cli_args = vars(cli_args), extra_
 # model_name = "OpenShape/openshape-pointbert-shapenet"
 model = load_model(config)
 model.to(device)
-# new_model = nn.Sequential(*list(model.children())[:-2])
-# for name in list(model.children())[:1]:
-#     print("name: ", name)
-    # print("param: ", param)
 
-# print("model: ", model)
 model.eval()
 
 cache_dir = os.environ.get("OPEN_CLIP_CACHE_DIR")
@@ -150,7 +141,6 @@ print("loading OpenCLIP model...")
 open_clip_model, _, open_clip_preprocess = open_clip.create_model_and_transforms('ViT-bigG-14', 
                                             pretrained='laion2b_s39b_b160k', cache_dir=cache_dir)
 open_clip_model.cuda().eval()
-# print("clip_model: ", open_clip_model)
 
 print("extracting 3D shape feature...")
 xyz, feat = load_ply("demo/owl.ply")

@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from torch import nn
 from tqdm import tqdm
 from collections import OrderedDict
-# from minlora import get_lora_state_dict
 
 import sklearn.metrics as metrics
 from utils_func import hf_hub_download
@@ -73,8 +72,6 @@ class Trainer(object):
         self.model.train()
 
         for data in self.train_loader:
-            # print("xyz: ", data['xyz'].shape)
-            # print("features: ", data['features'].shape)
             self.step += 1
             self.optimizer.zero_grad()
             loss = 0
@@ -83,12 +80,9 @@ class Trainer(object):
 
             logits = self.model(data['xyz'], data['features'])
             logits = logits.squeeze()
-            # print("logits: ", logits.shape)
             labels = data['category'].to(self.config.device)
-            # print("labels: ", labels)
 
             label_new = get_new_labels(labels, self.cat_list)
-            # print("label: ", label_new)
 
             loss = self.criterion(logits, label_new)
             loss.backward()
@@ -136,9 +130,6 @@ class Trainer(object):
             return res, correct
 
     def train(self):
-        # best_acc = 0
-        # overall_acc = self.test()
-        
         for epoch in range(self.epoch, self.config.training.max_epoch):
             self.epoch = epoch
             if self.rank == 0 and self.step % self.config.training.log_freq == 0:
@@ -153,7 +144,8 @@ class Trainer(object):
                 divmod(time_per_epoch, 60)[0] % 60,
                 time_per_epoch % 60,
             )
-            print(f"Time taken for epoch {epoch}: {formatted_time}")
+            if self.rank == 0:
+                logging.info(f"Time taken for epoch {epoch}: {formatted_time}")
             
             overall_acc = self.test()
             if overall_acc > self.best_acc:
@@ -165,9 +157,6 @@ class Trainer(object):
             if self.rank == 0 and self.epoch % self.config.training.save_freq == 0:
                 self.save_model('epoch_{}'.format(self.epoch))
 
-        # cat_str = "_".join(self.cat_list)
-        # logging.info(f"Category list: {cat_str}")
-        # logging.info("Best acc: {}".format(self.best_acc))
         return self.best_acc, self.best_epoch
 
     def test(self):
@@ -192,14 +181,10 @@ class Trainer(object):
                 preds = logits > 0.5
                 
                 labels_all.append(labels_new.cpu().numpy())
-                # print("preds: ", preds.shape)
-                # print("preds: ", preds.reshape(-1).shape)
                 preds_all.append(preds.detach().cpu().numpy())
         
         labels_all = np.concatenate(labels_all)
-        # print("labels_all: ", labels_all)
         preds_all = np.concatenate(preds_all).reshape(-1)
-        # print("preds_all: ", preds_all)
 
         overall_acc = metrics.accuracy_score(labels_all, preds_all)
 

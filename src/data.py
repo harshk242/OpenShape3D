@@ -254,10 +254,6 @@ def finetune_collate_fn(list_data):
         for data in list_data:
             merged_list += data
         list_data = merged_list
-    # feat = list_data[0]["features"]
-    # xyz = list_data[0]["xyz"]
-    # print("feat: ", feat.shape)
-    # print("xyz: ", xyz.shape)
 
     return {
         # "xyz": ME.utils.batched_coordinates([data["xyz"] for data in list_data], dtype=torch.float32),

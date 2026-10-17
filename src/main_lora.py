@@ -4,7 +4,6 @@ import logging
 import shutil
 import data
 import models
-# import MinkowskiEngine as ME
 import torch
 import wandb
 from omegaconf import OmegaConf
@@ -41,12 +40,10 @@ def cleanup():
     dist.destroy_process_group()
 
 def main(rank, world_size, cli_args, extras):
-    print("rank: ", rank)
     setup(rank, world_size)
 
     config = load_config(cli_args.config, cli_args = vars(cli_args), extra_args = extras)
     setup_cache(config)
-    print("config: ", config)
 
     if config.autoresume:
         config.trial_name = config.get('trial_name') + "@autoresume"
@@ -87,10 +84,6 @@ def main(rank, world_size, cli_args, extras):
         torch.cuda.set_device(rank)
         model.cuda(rank)
         model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
-        # if config.model.name.startswith('Mink'):
-        #     model = ME.MinkowskiSyncBatchNorm.convert_sync_batchnorm(model) # minkowski only
-        #     logging.info("Using MinkowskiSyncBatchNorm")
-        # else:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
         logging.info("Using SyncBatchNorm")
 
@@ -103,17 +96,15 @@ def main(rank, world_size, cli_args, extras):
         text_proj = DDP(text_proj, device_ids=[rank], output_device=rank, find_unused_parameters=False)
 
         train_loader = data.make(config, 'train', rank, world_size)
-        print("train_loader size: ", len(train_loader))
-        print("train_loader dataset size: ", len(train_loader.dataset))
+        logging.info("train_loader size: {}".format(len(train_loader)))
+        logging.info("train_loader dataset size: {}".format(len(train_loader.dataset)))
 
         if rank == 0:
             modelnet40_loader = data.make_modelnet40test(config)
             objaverse_lvis_loader = data.make_objaverse_lvis(config)
             scanobjectnn_loader = data.make_scanobjectnntest(config)
-            # print("modelnet40_loader size: ", len(modelnet40_loader.dataset))
-            print("objaverse_lvis_loader size: ", len(objaverse_lvis_loader))
-            print("objaverse_lvis_loader dataset size: ", len(objaverse_lvis_loader.dataset))
-            # print("scanobjectnn_loader size: ", len(scanobjectnn_loader.dataset))
+            logging.info("objaverse_lvis_loader size: {}".format(len(objaverse_lvis_loader)))
+            logging.info("objaverse_lvis_loader dataset size: {}".format(len(objaverse_lvis_loader.dataset)))
         else:
             modelnet40_loader = None
             objaverse_lvis_loader = None
@@ -123,8 +114,7 @@ def main(rank, world_size, cli_args, extras):
             if train_loader is not None:
                 logging.info("Train iterations: {}".format(len(train_loader)))
 
-        # print("lora params: ", list(get_lora_params(model)))
-        print("lora params: ", len(list(get_lora_params(model))))
+        logging.info("lora params: {}".format(len(list(get_lora_params(model)))))
         params = list(get_lora_params(model)) + list(image_proj.parameters()) + list(text_proj.parameters()) + list(logit_scale.parameters()) 
         if config.training.use_openclip_optimizer_scheduler:
             optimizer = torch.optim.AdamW(
@@ -145,12 +135,6 @@ def main(rank, world_size, cli_args, extras):
 
         if config.resume is not None:
             trainer.load_from_checkpoint_lora(config.resume)
-        # elif config.autoresume:
-        #     if os.path.exists(os.path.join(config.ckpt_dir, '{}.pt'.format('latest'))):
-        #         trainer.load_from_checkpoint(os.path.join(config.ckpt_dir, '{}.pt'.format('latest')))
-        # elif config.load_from_online:
-        #     model_name = "OpenShape/openshape-pointbert-vitg14-rgb"
-        #     trainer.load_from_online(model_name=model_name)
 
         trainer.train()
 

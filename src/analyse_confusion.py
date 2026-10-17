@@ -14,9 +14,6 @@ def top_confusion():
 
     # mn_res_norm = torch.load("src/eval_data/mn_confusion_norm.pt")
     ov_res_norm = torch.load("src/eval_data/ov_confusion_norm.pt")
-    # print("ov_idx2category: ", ov_idx2category)
-    # print("cat: ", ov_idx2category[34])
-    # print("ov_idx2category: ", len(ov_idx2category))
 
 
     ov_res = ov_res_norm.fill_diagonal_(0)
@@ -24,7 +21,6 @@ def top_confusion():
     # print("row_sum: ", row_sum.shape) # 1156 categories
 
     sorted_idx = torch.argsort(row_sum, descending=True)
-    # print("row_sum: ", row_sum[sorted_idx[:200]] )
     print("sorted: ", sorted_idx)
     sort_cat = [ov_idx2category[i.item()] for i in sorted_idx[:topx]]
 
@@ -57,7 +53,6 @@ def explore_features():
     rgb = torch.load("src/eval_data/ov_rgb.pt")
     features = torch.load("src/eval_data/ov_features.pt")
     print("rgb: ", rgb)
-    # print("features: ", features.shape)
     print("xyz: ", xyz.shape)
 
 explore_features()
@@ -86,9 +81,6 @@ def calc_var():
         class_var_list.append(class_var)
 
     class_var_list = torch.stack(class_var_list)
-    # print("class_var_list: ", class_var_list)
-    # print("class_var_list: ", class_var_list.shape)
-    # print("mantel: ", class_var_list[34])
 
     for i, var in enumerate(class_var_list):
         if len(idx2category[i]) < 5:

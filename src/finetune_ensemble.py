@@ -45,7 +45,6 @@ class EnsembleModel(torch.nn.Module):
             param.requires_grad = False
 
     def forward(self, xyz, features):
-        # print(f"input_tuple: {input_tuple}")
         # xyz, features = input_tuple
         x = self.base_model(xyz, features)
         base = self.base_proj_layer(x)
@@ -107,8 +106,6 @@ phase = "test"
 cat_list = ['goldfish', 'fish', 'salmon_(fish)', 'earphone', 'headset', 'blazer', 'jacket', 'teakettle', 'teapot', 'kettle']
 finetune_test_loader = data.make(config, phase, None, None, cat_list)
 
-# print("objaverse_lvis total batches: ", len(objaverse_lvis_loader))
-# print("objaverse_lvis dataset size: ", len(objaverse_lvis_loader.dataset))
 print(f"finetune_test_loader batches: {len(finetune_test_loader)}")
 print(f"finetune_test_loader dataset size: {len(finetune_test_loader.dataset)}")
 

@@ -57,24 +57,6 @@ def load_model_from_path(config, model_path, device):
 
     return model
 
-# def load_lora_model_from_path(config, model_path, device):
-#     print("Loading model from path: ", model_path)
-#     model = models.make(config)
-#     add_lora(model)
-#     # model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-#     checkpoint = torch.load(model_path)
-
-#     # model_dict = OrderedDict()
-#     # pattern = re.compile('module.')
-#     # for k,v in checkpoint['state_dict'].items():
-#     #     if re.search("module", k):
-#     #         model_dict[re.sub(pattern, '', k)] = v
-
-#     # model.load_state_dict(model_dict)
-#     model.load_state_dict(checkpoint['state_dict'])
-#     model.to(device)
-
-#     return model
 
 def get_train_test_size(config, target_cat_pair):
     finetune_dir = os.path.join("finetune", target_cat_pair)
@@ -104,8 +86,6 @@ def calc_accuracy(output, target, topk=(1,)):
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
         correct = pred.eq(target.reshape(1, -1).expand_as(pred))
-        # print("correct: ", correct.shape)
-        # print("correct: ", correct)
         res = []
         for k in topk:
             correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
